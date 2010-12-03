@@ -361,7 +361,7 @@ public class CuboidPlugin extends Plugin {
 		CuboidListener listener = new CuboidListener();
 		PluginLoader loader = etc.getLoader();
 		loader.addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.MEDIUM);
-		loader.addListener(PluginLoader.Hook.ITEM_USE, listener, this, PluginListener.Priority.HIGH);
+		//loader.addListener(PluginLoader.Hook.ITEM_USE, listener, this, PluginListener.Priority.HIGH);
 		loader.addListener(PluginLoader.Hook.BLOCK_PLACE, listener, this, PluginListener.Priority.HIGH);
 		loader.addListener(PluginLoader.Hook.BLOCK_BROKEN, listener, this, PluginListener.Priority.HIGH);
 		loader.addListener(PluginLoader.Hook.BLOCK_RIGHTCLICKED, listener, this, PluginListener.Priority.HIGH);
@@ -1430,26 +1430,11 @@ public class CuboidPlugin extends Plugin {
 		////	BLOCKS PROTECTION   ////
 		////////////////////////////////
 		
-		public boolean onItemUse(Player player, Item item) {
-			if ( protectionSytem && !player.canUseCommand("/ignoresOwnership") && (item.getItemId()==326 || item.getItemId()==327) ){
-				HitBlox blox = new HitBlox(player);
-				if (blox.getTargetBlock() != null){
-					CuboidB cuboid = CuboidAreas.findCuboidArea(blox.getTargetBlock().getX(), blox.getTargetBlock().getY(), 
-							blox.getTargetBlock().getZ());
-					if ( cuboid != null && cuboid.protection ){
-						boolean allowed = cuboid.isAllowed(player);
-						if (!allowed && protectionWarn){
-							player.sendMessage(Colors.Rose+"This block is protected !" );
-						}
-						return !allowed;
-					}
-				}
-			}
-			return false;
-		}
+		// TODO : next hMod release will have an exploitable onItemUse, that will be used here to prevent the usage of items in a protected block.
+		// This will replace the old behavior of onBlockCreate, yay !
 	
 		public boolean onBlockPlace(Player player, Block blockPlaced, Block blockClicked, Item itemInHand) {
-			/*if ( operableItems.contains(blockClicked.getType()) ){	// TODO broken
+			/*if ( operableItems.contains(blockClicked.getType()) ){	// TODO doesn't work that way anymore
 				return false;	// allows some items to be manipulated
 			}*/
 			if ( protectionSytem && !player.canUseCommand("/ignoresOwnership") ){
