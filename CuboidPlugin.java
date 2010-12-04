@@ -12,8 +12,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class CuboidPlugin extends Plugin {
-	// Version 17.6 : 02/12 16h00 GMT+1
-	// for servermod dev build 124
+	// Version 17.7 : 04/12 09h00 GMT+1
+	// for servermod 131 or dev build 143
 		
 	public String name = "CuboidPlugin";
 	static final Logger log = Logger.getLogger("Minecraft");
@@ -31,6 +31,14 @@ public class CuboidPlugin extends Plugin {
 	static boolean globalDisablePvP = false;
 	static boolean globalCreeperProt = false;
 	static boolean globalSanctuary = false;
+	// local area features default values
+	static boolean protectionOnDefault = false;
+	static boolean restrictedOnDefault = false;
+	static boolean localInventoryOnDefault = false;
+	static boolean sanctuaryOnDefault = false;
+	static boolean creeperDisabledOnDefault = false;
+	static boolean pvpDisabledOnDefault = false;
+	static boolean healOnDefault = false;
 	// local area features allowance for owners/and protect-allowed
 	static boolean onMoveFeatures = true;
 	static boolean allowInventories = true;
@@ -46,22 +54,24 @@ public class CuboidPlugin extends Plugin {
 	// Temporaty fix for wrinting to disk...
 	static long writeDelay = 1800000;
 	
-	static Timer timer = new Timer();	// TODO - fluid removab - temporary solution - look for // FLUID
+	static Timer writeTimer = new Timer();
+	static Timer healTimer = new Timer();
 	
 	public void enable(){
-		log.info("CuboidPlugin : initializing v17.6 for hMod dev build 124");
+		log.info("CuboidPlugin : initializing v17.7 for hMod 131 or dev build 143");
 		checkFolder();
 		CuboidAreas.loadCuboidAreas();
 		loadProperties();
 		notTeleport = new ArrayList<String>();
 		if ( writeDelay>0 ){
-			timer.schedule(new WriteJob(), writeDelay);
+			writeTimer.schedule(new WriteJob(), writeDelay);
 		}
 	}
 	
 	public void disable(){
 		onPluginStop();
-		timer = new Timer();
+		writeTimer = new Timer();
+		healTimer = new Timer();
 	}
 	
 	/*
@@ -110,8 +120,24 @@ public class CuboidPlugin extends Plugin {
                 // Worldwide features
                 writer.write("#List of groups that are forbiden to build on the entire world.\r\n");
                 writer.write("#Delimiter is a coma. Leave blank if none\r\n");
-                writer.write("restrictedGroups=\r\n");           
-                // Area features
+                writer.write("restrictedGroups=\r\n");  
+                // Area features : default values
+                writer.write("# Is protection by default in a newly created area ?\r\n");
+                writer.write("protectionOnDefault=false\r\n");
+                writer.write("# Is restricted access by default in a newly created area ?\r\n");
+                writer.write("restrictedOnDefault=false\r\n");
+                writer.write("# Is separated inventory by default in a newly created area ?\r\n");
+                writer.write("localInventoryOnDefault=false\r\n");
+                writer.write("# Is mob damage protection by default in a newly created area ?\r\n");
+                writer.write("sanctuaryOnDefault=false\r\n");
+                writer.write("# Is creeper explosion disabled by default in a newly created area ?\r\n");
+                writer.write("creeperDisabledOnDefault=false\r\n");
+                writer.write("# Is pvp disabled by default in a newly created area ?\r\n");
+                writer.write("pvpDisabledOnDefault=false\r\n");
+                writer.write("# Is healing by default in a newly created area ?\r\n");
+                writer.write("healOnDefault=false\r\n");
+                // Area features : switching allowance
+            	writer.write("# All the below allowances will define if an owner is able to switch features on/off by himself\r\n");
                 writer.write("# Do you want owners to be able to prevent PvP in their area ?\r\n");
                 writer.write("allowNoPvpZones=true\r\n");
                 writer.write("# Do you want owners to be able to prevent Creeper explosions in their area ?\r\n");
@@ -172,6 +198,13 @@ public class CuboidPlugin extends Plugin {
 			writeDelay = (long)(60000*properties.getInt("autoSaveDelay", 30));
 			onMoveFeatures = properties.getBoolean("onMoveFeatures", true);
 			protectionSytem = properties.getBoolean("protectionSytem", true);
+			protectionOnDefault = properties.getBoolean("protectionOnDefault", false);
+			restrictedOnDefault = properties.getBoolean("restrictedOnDefault", false);
+			localInventoryOnDefault = properties.getBoolean("localInventoryOnDefault", false);
+        	sanctuaryOnDefault = properties.getBoolean("sanctuaryOnDefault", false);
+        	creeperDisabledOnDefault = properties.getBoolean("creeperDisabledOnDefault", false);
+        	pvpDisabledOnDefault = properties.getBoolean("pvpDisabledOnDefault", false);
+        	healOnDefault = properties.getBoolean("healOnDefault", false);
 			allowInventories = properties.getBoolean("allowInventories", true);
 			allowRestrictedZones = properties.getBoolean("allowRestrictedZones", false);
 			allowNoPvpZones = properties.getBoolean("allowNoPvpZones", true);
@@ -361,7 +394,7 @@ public class CuboidPlugin extends Plugin {
 		CuboidListener listener = new CuboidListener();
 		PluginLoader loader = etc.getLoader();
 		loader.addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.MEDIUM);
-		//loader.addListener(PluginLoader.Hook.ITEM_USE, listener, this, PluginListener.Priority.HIGH);
+		loader.addListener(PluginLoader.Hook.ITEM_USE, listener, this, PluginListener.Priority.HIGH);
 		loader.addListener(PluginLoader.Hook.BLOCK_PLACE, listener, this, PluginListener.Priority.HIGH);
 		loader.addListener(PluginLoader.Hook.BLOCK_BROKEN, listener, this, PluginListener.Priority.HIGH);
 		loader.addListener(PluginLoader.Hook.BLOCK_RIGHTCLICKED, listener, this, PluginListener.Priority.HIGH);
@@ -415,6 +448,37 @@ public class CuboidPlugin extends Plugin {
 					}
 					else if (split[1].startsWith("own")){
 						CuboidAreas.displayOwnedList(player);
+					}
+					else if (split[1].startsWith("global")){
+						String message = "";
+						for (String group : restrictedGroups){
+							message += " " + group;
+						}
+						if (!message.equalsIgnoreCase("")){
+							player.sendMessage(Colors.Yellow + "Restricted group(s) :" + Colors.White + message);
+						}
+						else{
+							player.sendMessage(Colors.Yellow + "No restricted group");
+						}
+						if ( globalDisablePvP ){
+							player.sendMessage(Colors.Yellow + "PvP : " + Colors.White + "disabled");
+						}
+						else{
+							player.sendMessage(Colors.Yellow + "PvP : " + Colors.White + "allowed");
+						}
+						if ( globalCreeperProt ){
+							player.sendMessage(Colors.Yellow + "Creeper explosions :"+ Colors.White +" disabled");
+						}
+						else{
+							player.sendMessage(Colors.Yellow + "Creeper explosions :"+ Colors.White +" enabled");
+						}
+						if ( globalSanctuary ){
+							player.sendMessage(Colors.Yellow + "Monsters :"+ Colors.White +" harmless");
+						}
+						else{
+							player.sendMessage(Colors.Yellow + "Monsters :"+ Colors.White +" dangerous");
+						}
+						player.sendMessage(Colors.Rose + "Local setting overwrite global ones.");
 					}
 					else if (split[1].equalsIgnoreCase("reload")){
 						if ( !player.canUseCommand("/cuboid") ){
@@ -532,6 +596,14 @@ public class CuboidPlugin extends Plugin {
 				else if ( split[2].startsWith("info") ){
 					cuboidArea.printInfos(player, true, true);
 				}
+				else if ( split[2].startsWith("select") ){
+					if ( !player.canUseCommand("/cuboid") ){
+						player.sendMessage(Colors.Rose + "You are not allowed to use this command.");
+						return true;
+					}
+					CuboidAction.setBothPoint(playerName, cuboidArea.coords);
+					player.sendMessage(Colors.LightGreen + "Area selected : " + cuboidArea.name);
+				}
 				else if ( split[2].equalsIgnoreCase("move") ){
 					if ( !player.canUseCommand("/protect") ){
 						player.sendMessage(Colors.Rose + "You are not allowed to use this command.");
@@ -564,8 +636,7 @@ public class CuboidPlugin extends Plugin {
 						}
 						else if ( split[3].startsWith("restric") ){
 							if ( !player.canUseCommand("/cuboidAreas") && !allowRestrictedZones ){
-								player.sendMessage(Colors.Yellow + "Restricted areas are globaly disallowed.");
-								cuboidArea.restricted = false;
+								player.sendMessage(Colors.Yellow + "Restricted areas switching is disabled");
 								return true;
 							}
 							cuboidArea.restricted = !cuboidArea.restricted;
@@ -574,8 +645,7 @@ public class CuboidPlugin extends Plugin {
 						}
 						else if ( split[3].equalsIgnoreCase("pvp") ){
 							if ( !player.canUseCommand("/cuboidAreas") && !allowNoPvpZones ){
-								player.sendMessage(Colors.Yellow + "No-PvP areas are globaly disallowed.");
-								cuboidArea.PvP = true;
+								player.sendMessage(Colors.Yellow + "No-PvP areas switching is disabled");
 								return true;
 							}
 							cuboidArea.PvP = !cuboidArea.PvP;
@@ -584,8 +654,7 @@ public class CuboidPlugin extends Plugin {
 						}
 						else if ( split[3].equalsIgnoreCase("heal") ){
 							if ( !player.canUseCommand("/cuboidAreas") && healPower == 0 ){
-								player.sendMessage(Colors.Yellow + "Healing areas are globaly disallowed.");
-								cuboidArea.heal = false;
+								player.sendMessage(Colors.Yellow + "Healing areas switching is disabled");
 								return true;
 							}
 							cuboidArea.heal = !cuboidArea.heal;
@@ -594,8 +663,7 @@ public class CuboidPlugin extends Plugin {
 						}
 						else if ( split[3].equalsIgnoreCase("sanctuary") ){
 							if ( !player.canUseCommand("/cuboidAreas") && !allowSanctuaries ){
-								player.sendMessage(Colors.Yellow + "Sanctuaries are globaly disallowed.");
-								cuboidArea.sanctuary = true;
+								player.sendMessage(Colors.Yellow + "Sanctuaries switching is disabled");
 								return true;
 							}
 							cuboidArea.sanctuary = !cuboidArea.sanctuary;
@@ -604,8 +672,7 @@ public class CuboidPlugin extends Plugin {
 						}
 						else if ( split[3].equalsIgnoreCase("creeper") ){
 							if ( !player.canUseCommand("/cuboidAreas") && !allowNoCreeperZones ){
-								player.sendMessage(Colors.Yellow + "No-Creeper areas are globaly disallowed.");
-								cuboidArea.creeper = false;
+								player.sendMessage(Colors.Yellow + "No-Creeper areas switching is disabled");
 								return true;
 							}
 							cuboidArea.creeper = !cuboidArea.creeper;
@@ -615,8 +682,7 @@ public class CuboidPlugin extends Plugin {
 						
 						else if ( split[3].startsWith("invent") ){
 							if ( !player.canUseCommand("/cuboidAreas") && !allowInventories ){
-								player.sendMessage(Colors.Yellow + "Area-specific inventories are globaly disallowed.");
-								cuboidArea.inventories = false;
+								player.sendMessage(Colors.Yellow + "Area-specific inventories switching is disabled");
 								return true;
 							}
 							if ( !cuboidArea.inventories ){
@@ -1411,7 +1477,7 @@ public class CuboidPlugin extends Plugin {
 		////	CUBOID SELECTION    ////
 		////////////////////////////////
 		
-		public void onBlockRightClicked(Player player, Block blockClicked, Item item) { // TODO : adapt with next Hmod
+		public void onBlockRightClicked(Player player, Block blockClicked, Item item) {
 			if ( item.getItemId()==mainToolID && (player.canUseCommand("/protect") || player.canUseCommand("/cuboid")) ){
 					boolean whichPoint = CuboidAction.setPoint(player.getName(), blockClicked.getX(), blockClicked.getY(),
 							blockClicked.getZ());
@@ -1430,23 +1496,43 @@ public class CuboidPlugin extends Plugin {
 		////	BLOCKS PROTECTION   ////
 		////////////////////////////////
 		
-		// TODO : next hMod release will have an exploitable onItemUse, that will be used here to prevent the usage of items in a protected block.
-		// This will replace the old behavior of onBlockCreate, yay !
+		public boolean onItemUse(Player player, Block blockPlaced, Block blockClicked, Item item) {
+			if ( protectionSytem && !player.canUseCommand("/ignoresOwnership") ){
+				// TODO : FUUUUUU, always returning -1/255/-1 as coordinates >__<
+				//log.info("DEBUG " + blockClicked.getX() + "/" + blockClicked.getY() + "/" + blockClicked.getZ());
+				//log.info("DEBUG " + blockPlaced.getX() + "/" + blockPlaced.getY() + "/" + blockPlaced.getZ());
+				
+				// Temporary solution
+				CuboidB cuboid;
+				Block blox = new HitBlox(player).getTargetBlock();
+				if (blox!=null)
+					cuboid = CuboidAreas.findCuboidArea(blox.getX(), blox.getY(), blox.getZ());
+				else
+					cuboid = null;
+				
+				//CuboidB cuboid = CuboidAreas.findCuboidArea(blockClicked.getX(), blockClicked.getY(), blockClicked.getZ());
+				if ( cuboid != null && cuboid.protection ){
+					boolean allowed = cuboid.isAllowed(player);
+					if (!allowed && protectionWarn){
+						player.sendMessage(Colors.Rose+"This block is protected !" );
+					}
+					return !allowed;
+				}
+				else{
+					return isGloballyRestricted(player);
+				}
+			}
+			return false;
+		}
 	
 		public boolean onBlockPlace(Player player, Block blockPlaced, Block blockClicked, Item itemInHand) {
-			/*if ( operableItems.contains(blockClicked.getType()) ){	// TODO doesn't work that way anymore
+			/*if ( operableItems.contains(blockClicked.getType()) ){	// TODO broken
 				return false;	// allows some items to be manipulated
 			}*/
 			if ( protectionSytem && !player.canUseCommand("/ignoresOwnership") ){
 				CuboidB cuboid = CuboidAreas.findCuboidArea(blockPlaced.getX(), blockPlaced.getY(), blockPlaced.getZ());
 				if ( cuboid != null && cuboid.protection ){
 					boolean allowed = cuboid.isAllowed(player);
-					
-					// FLUID
-					if ( !allowed && (blockPlaced.getType()==326 || blockPlaced.getType()==327) ){
-						//timer.schedule(new RemoveFluids(blockPlaced), 300);
-					}
-					
 					if (!allowed && protectionWarn){
 						player.sendMessage(Colors.Rose+"This block is protected !" );
 					}
@@ -1509,7 +1595,7 @@ public class CuboidPlugin extends Plugin {
 				else if ( arrival != null && departure == null ){
 					arrival.playerEnters(player);
 					if ( healPower > 0 && arrival.heal && player.getHealth() > 0 ){
-						timer.schedule(new HealJob(player.getName(), arrival.coords), healDelay);
+						healTimer.schedule(new HealJob(player.getName(), arrival.coords), healDelay);
 					}
 				}
 			}
@@ -1546,7 +1632,7 @@ public class CuboidPlugin extends Plugin {
 					else if ( arrival != null && departure == null ){
 						arrival.playerEnters(player);
 						if ( healPower > 0 && arrival.heal && player.getHealth() > 0 ){
-							timer.schedule(new HealJob(player.getName(), arrival.coords), healDelay);
+							healTimer.schedule(new HealJob(player.getName(), arrival.coords), healDelay);
 						}
 						
 					}
@@ -1654,21 +1740,10 @@ public class CuboidPlugin extends Plugin {
 	    }
 	} // end cuboidListener
 	
-	// FLUID
-	public class RemoveFluids extends TimerTask{
-		Block block;
-		public RemoveFluids( Block block ){
-			this.block = block;
-		}
-		public void run(){
-			etc.getServer().setBlockAt(0, this.block.getX(), this.block.getY(), this.block.getZ());
-		}
-	}
-	
 	public class WriteJob extends TimerTask{
 		public void run(){
 			CuboidAreas.writeCuboidAreas();
-			timer.schedule(new WriteJob(), writeDelay);
+			writeTimer.schedule(new WriteJob(), writeDelay);
 		}
 	}
 	
@@ -1687,7 +1762,7 @@ public class CuboidPlugin extends Plugin {
 					player.setHealth(player.getHealth()+healPower);	
 				}
 				if ( player.getHealth() < 20 ){
-					timer.schedule(new HealJob(this.playerName, this.coords), healDelay);
+					healTimer.schedule(new HealJob(this.playerName, this.coords), healDelay);
 				}
 			}
 			

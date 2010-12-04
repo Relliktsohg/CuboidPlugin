@@ -22,6 +22,17 @@ public class CuboidAction {
 		return getPlayerSelection(playerName).selectCorner(X, Y, Z);
 	}
 	
+	public static void setBothPoint(String playerName, int[] coords){
+		CuboidSelection selection = getPlayerSelection(playerName);
+		selection.firstCorner[0] = coords[0];
+		selection.firstCorner[1] = coords[1];
+		selection.firstCorner[2] = coords[2];
+		selection.secondCorner[0] = coords[3];
+		selection.secondCorner[1] = coords[4];
+		selection.secondCorner[2] = coords[5];
+		selection.status = false;
+	}
+	
 	public static int[] getPoint(String playerName, boolean secondPoint){
 		if (secondPoint){
 			return getPlayerSelection(playerName).secondCorner;

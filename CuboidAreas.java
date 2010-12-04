@@ -250,6 +250,27 @@ public class CuboidAreas {
 			newCuboid.coords[i+3] = secondPoint[i];
 		newCuboid.allowedPlayers.add("o:" + playerName);
 		newCuboid.name = cuboidName;
+		if ( CuboidPlugin.protectionOnDefault ){
+			newCuboid.protection = true;
+		}
+		if ( CuboidPlugin.restrictedOnDefault ){
+			newCuboid.restricted = true;
+		}
+		if ( CuboidPlugin.localInventoryOnDefault ){
+			newCuboid.inventories = true;
+		}
+		if ( CuboidPlugin.sanctuaryOnDefault ){
+			newCuboid.sanctuary = true;	
+		}
+		if ( CuboidPlugin.creeperDisabledOnDefault ){
+			newCuboid.creeper = false;
+		}
+		if ( CuboidPlugin.pvpDisabledOnDefault ){
+			newCuboid.PvP = false;
+		}
+		if ( CuboidPlugin.healOnDefault ){
+			newCuboid.heal = true;
+		}
 		listOfCuboids.add(newCuboid);
 		
 		player.sendMessage( Colors.LightGreen + "Cuboid area successfuly created" );
