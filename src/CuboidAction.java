@@ -52,7 +52,6 @@ public class CuboidAction {
 			return true;
 		}
 		else if( !deuxPoints && selection.status ) {
-			selection.status = false;
 			return true;
 		}
 		return false;

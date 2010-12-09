@@ -13,7 +13,7 @@ import java.util.logging.Logger;
 
 public class CuboidPlugin extends Plugin {
 	// Version 17.7 : 04/12 09h00 GMT+1
-	// for servermod 131 or dev build 143
+	// for servermod 131
 		
 	public String name = "CuboidPlugin";
 	static final Logger log = Logger.getLogger("Minecraft");
@@ -58,7 +58,7 @@ public class CuboidPlugin extends Plugin {
 	static Timer healTimer = new Timer();
 	
 	public void enable(){
-		log.info("CuboidPlugin : initializing v17.7 for hMod 131 or dev build 143");
+		log.info("CuboidPlugin : initializing v17.7 for hMod 131");
 		checkFolder();
 		CuboidAreas.loadCuboidAreas();
 		loadProperties();
@@ -273,6 +273,14 @@ public class CuboidPlugin extends Plugin {
 		}
 		else
 			return false;
+	}
+	
+	private boolean isCreatorItem(int type){
+		if ( type == 259 || type == 290 || type == 291 || type == 292 || type == 293 || type == 294 || type == 295 || type == 323
+				 || type == 324 || type == 325 || type == 326 || type == 327 || type == 330 || type == 331 || type == 338){
+			return true;
+		}
+		return false;
 	}
 	
 	private boolean isBlackListedBlockID(int blocID){	
@@ -1497,20 +1505,9 @@ public class CuboidPlugin extends Plugin {
 		////////////////////////////////
 		
 		public boolean onItemUse(Player player, Block blockPlaced, Block blockClicked, Item item) {
-			if ( protectionSytem && !player.canUseCommand("/ignoresOwnership") ){
-				// TODO : FUUUUUU, always returning -1/255/-1 as coordinates >__<
-				//log.info("DEBUG " + blockClicked.getX() + "/" + blockClicked.getY() + "/" + blockClicked.getZ());
-				//log.info("DEBUG " + blockPlaced.getX() + "/" + blockPlaced.getY() + "/" + blockPlaced.getZ());
-				
-				// Temporary solution
-				CuboidB cuboid;
-				Block blox = new HitBlox(player).getTargetBlock();
-				if (blox!=null)
-					cuboid = CuboidAreas.findCuboidArea(blox.getX(), blox.getY(), blox.getZ());
-				else
-					cuboid = null;
-				
-				//CuboidB cuboid = CuboidAreas.findCuboidArea(blockClicked.getX(), blockClicked.getY(), blockClicked.getZ());
+			if ( blockClicked!=null && protectionSytem && !player.canUseCommand("/ignoresOwnership")
+					&& isCreatorItem(item.getItemId()) ){				
+				CuboidB cuboid = CuboidAreas.findCuboidArea(blockClicked.getX(), blockClicked.getY(), blockClicked.getZ());
 				if ( cuboid != null && cuboid.protection ){
 					boolean allowed = cuboid.isAllowed(player);
 					if (!allowed && protectionWarn){
