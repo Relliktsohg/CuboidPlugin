@@ -236,20 +236,7 @@ public class CuboidPlugin extends Plugin {
 				}
 			}
 			
-			// reading state of global features if needed
-			File globalFile = new File("cuboids/globalFeatues.dat");
-			if ( globalFile.exists() ){
-				try{
-					ObjectInputStream ois = new ObjectInputStream(new FileInputStream(globalFile));
-					globalDisablePvP = (Boolean)ois.readObject();
-					globalCreeperProt = (Boolean)ois.readObject();
-					globalSanctuary = (Boolean)ois.readObject();
-					ois.close();					
-				}
-				catch (Exception e){
-					log.severe("CuboidPlugin : Error while reading the state of global features");
-				}
-			}
+			readGlobals();
 			
 			log.info("CuboidPlugin : properties loaded");
         } catch (Exception e) {
@@ -350,25 +337,7 @@ public class CuboidPlugin extends Plugin {
 			}
 		}
 		CuboidAreas.writeCuboidAreas();
-		
-		if ( globalCreeperProt || globalDisablePvP || globalSanctuary ){
-			try{
-				ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(new File("cuboids/globalFeatues.dat")));
-				oos.writeObject(globalDisablePvP);
-				oos.writeObject(globalCreeperProt);
-				oos.writeObject(globalSanctuary);
-				oos.close();
-			}
-			catch (Exception e){
-				log.severe("CuboidPlugin : Error while writing the state of global features");
-			}
-		}
-		else{
-			File globalFile = new File("cuboids/globalFeatues.dat");
-			if ( globalFile.exists() ){
-				globalFile.delete();
-			}
-		}
+		writeGlobals();		
 
 		log.info("CuboidPlugin : shutting down");
 	}
@@ -391,6 +360,46 @@ public class CuboidPlugin extends Plugin {
 	private void broadcast (String message){
 		for  (Player p : etc.getServer().getPlayerList() ) {
 			p.sendMessage(message);
+		}
+	}
+
+	private void writeGlobals()
+	{
+		if ( globalCreeperProt || globalDisablePvP || globalSanctuary ){
+			try{
+				ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(new File("cuboids/globalFeatues.dat")));
+				oos.writeObject(globalDisablePvP);
+				oos.writeObject(globalCreeperProt);
+				oos.writeObject(globalSanctuary);
+				oos.close();
+			}
+			catch (Exception e){
+				log.severe("CuboidPlugin : Error while writing the state of global features");
+			}
+		}
+		else{
+			File globalFile = new File("cuboids/globalFeatues.dat");
+			if ( globalFile.exists() ){
+				globalFile.delete();
+			}
+		}
+	}
+	
+	private void readGlobals()
+	{
+		// reading state of global features if needed
+		File globalFile = new File("cuboids/globalFeatues.dat");
+		if ( globalFile.exists() ){
+			try{
+				ObjectInputStream ois = new ObjectInputStream(new FileInputStream(globalFile));
+				globalDisablePvP = (Boolean)ois.readObject();
+				globalCreeperProt = (Boolean)ois.readObject();
+				globalSanctuary = (Boolean)ois.readObject();
+				ois.close();					
+			}
+			catch (Exception e){
+				log.severe("CuboidPlugin : Error while reading the state of global features");
+			}
 		}
 	}
 	
@@ -542,7 +551,9 @@ public class CuboidPlugin extends Plugin {
 					}
 					else{
 						player.sendMessage( Colors.Rose + "Usage : /cmod globaltoggle <pvp | creepers | sanctuary>");
+						return true;
 					}
+					writeGlobals();
 					return true;
 				}
 				
