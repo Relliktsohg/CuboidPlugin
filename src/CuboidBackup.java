@@ -21,7 +21,7 @@ public class CuboidBackup implements Serializable {
 	private int[][][] cuboidData;
 	private int[] coords;
 	
-	CuboidBackup( CuboidB cuboid, boolean store ){
+	CuboidBackup( CuboidC cuboid, boolean store ){
 		this.name = cuboid.name;
 		this.coords = cuboid.coords;
 		if (store)

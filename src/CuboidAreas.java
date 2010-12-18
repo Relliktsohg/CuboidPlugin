@@ -7,9 +7,16 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Scanner;
-
+import java.util.Timer;
 
 /*
  * This is the interface for stored cuboidB areas.
@@ -18,14 +25,25 @@ import java.util.Scanner;
  */
 
 public class CuboidAreas {
-	static String currentDataVersion = "B";
+	static ArrayList<CuboidC> listOfCuboids;
+	static HashMap<String, ArrayList<CuboidC>> inside;
+	
+	static Timer healTimer = new Timer();
+	static int healPower = 0;
+	static long healDelay = 1000;
+	
+	static String SQLdriver = "com.mysql.jdbc.Driver";
+	static String SQLusername = "root";
+	static String SQLpassword = "root";
+	static String SQLdb = "jdbc:mysql://localhost:3306/minecraft";
+	
+	static String currentDataVersion = "C";
 	static int addedHeight = 0;
 	static boolean newestHavePriority = true;
-	static ArrayList<CuboidB> listOfCuboids;
 	
 	@SuppressWarnings("unchecked")
 	public static void loadCuboidAreas(){
-		listOfCuboids = new ArrayList<CuboidB>();
+		listOfCuboids = new ArrayList<CuboidC>();
 		
 		File dataSource = new File("cuboids/cuboidAreas.dat");
 		if ( !dataSource.exists() ){
@@ -48,7 +66,7 @@ public class CuboidAreas {
 						new BufferedInputStream(
 							new FileInputStream(
 								new File("cuboids/cuboidAreas.dat"))));
-		       listOfCuboids = (ArrayList<CuboidB>)( ois.readObject() );
+		       listOfCuboids = (ArrayList<CuboidC>)( ois.readObject() );
 		       ois.close();
 		       CuboidPlugin.log.info("CuboidPlugin : cuboidAreas.dat (format " + currentDataVersion + ") loaded");
 			}
@@ -75,7 +93,7 @@ public class CuboidAreas {
 					continue;
 				}
 				
-				CuboidB newArea = new CuboidB();
+				CuboidC newArea = new CuboidC();
 				int[] tempCoords = new int[6];
 				for (short i=0; i<6; i++){
 					tempCoords[i] = Integer.parseInt(donnees[i]);
@@ -119,34 +137,71 @@ public class CuboidAreas {
 				CuboidPlugin.log.severe("Cuboid plugin : Error while reading cuboidAreas.dat");
 			}
 			
-			listOfCuboids = new ArrayList<CuboidB>();
+			listOfCuboids = new ArrayList<CuboidC>();
 			for ( Cuboid oldCuboid : oldCuboids ){
-				CuboidB newCuboid = new CuboidB();
+				CuboidC newCuboid = new CuboidC();
 				newCuboid.name = oldCuboid.name;
 				newCuboid.coords = oldCuboid.coords;
 				newCuboid.allowedPlayers = oldCuboid.allowedPlayers;
 				newCuboid.protection = oldCuboid.protection;
 				newCuboid.restricted = oldCuboid.restricted;
-				newCuboid.inventories = oldCuboid.inventories;
 				newCuboid.warning = oldCuboid.warning;
 				newCuboid.welcomeMessage = oldCuboid.welcomeMessage;
 				newCuboid.farewellMessage = oldCuboid.farewellMessage;
-				newCuboid.presentPlayers = oldCuboid.presentPlayers;
 				newCuboid.disallowedCommands = oldCuboid.disallowedCommands;
-				newCuboid.playerInventories = oldCuboid.playerInventories;
 				listOfCuboids.add( newCuboid );
 			}
 			
 			CuboidPlugin.log.info("CuboidPlugin : conversion of cuboidAreas.dat from f.A to f.B sucessful");
 			CuboidPlugin.log.info("CuboidPlugin : cuboidAreas.dat loaded.");
 		}
+		else if ( dataVersion.equalsIgnoreCase("B")){
+			ArrayList<CuboidB> oldCuboids;
+			try {
+				ObjectInputStream ois =
+					new ObjectInputStream(
+						new BufferedInputStream(
+							new FileInputStream(
+								new File("cuboids/cuboidAreas.dat"))));
+				oldCuboids = (ArrayList<CuboidB>)( ois.readObject() );
+				ois.close();
+			}
+			catch (Exception e) {
+				oldCuboids = new ArrayList<CuboidB>();
+				CuboidPlugin.log.severe("Cuboid plugin : Error while reading cuboidAreas.dat");
+			}
+			
+			listOfCuboids = new ArrayList<CuboidC>();
+			for ( CuboidB oldCuboid : oldCuboids ){
+				CuboidC newCuboid = new CuboidC();
+				newCuboid.name = oldCuboid.name;
+				newCuboid.coords = oldCuboid.coords;
+				newCuboid.allowedPlayers = oldCuboid.allowedPlayers;
+				newCuboid.protection = oldCuboid.protection;
+				newCuboid.restricted = oldCuboid.restricted;
+				newCuboid.warning = oldCuboid.warning;
+				newCuboid.welcomeMessage = oldCuboid.welcomeMessage;
+				newCuboid.farewellMessage = oldCuboid.farewellMessage;
+				newCuboid.disallowedCommands = oldCuboid.disallowedCommands;
+				listOfCuboids.add( newCuboid );
+			}
+			
+			CuboidPlugin.log.info("CuboidPlugin : conversion of cuboidAreas.dat from f.B to f.C sucessful");
+			CuboidPlugin.log.info("CuboidPlugin : cuboidAreas.dat loaded.");
+		}
 		else{
 			CuboidPlugin.log.severe("CuboidPlugin : unsupported data version");
-			listOfCuboids = new ArrayList<CuboidB>();
+			listOfCuboids = new ArrayList<CuboidC>();
 		}
 	}
 	
 	public static void writeCuboidAreas(){
+		/*	// SQL
+		if ( CuboidPlugin.SQLstorage ){
+			
+			return;
+		}
+		*/
 		CuboidPlugin.log.info("CuboidPlugin : Saving data to hard drive...");
         try {
         	ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(
@@ -162,13 +217,61 @@ public class CuboidAreas {
 		CuboidPlugin.log.info("CuboidPlugin : Done.");
 	}
 	
+	public static void updateSQL(CuboidC cuboid){
+		// // SQL
+		Connection conn = null;
+	    PreparedStatement ps = null;
+	    ResultSet rs = null;
+	    try {
+	    	conn = DriverManager.getConnection(SQLdb, SQLusername, SQLpassword);
+	        ps = conn.prepareStatement("INSERT INTO cuboidAreas (name, X1, Y1, Z1, X2, Y2, Z2, protection, restriction," +
+	        		" trespassing, pvp, heal, creeper, sanctuary, welcome, farewell, warning, owners, present" +
+	        		"cmdblacklist, playersINVs)" + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	        		, Statement.RETURN_GENERATED_KEYS);	         
+	        ps.setString(1, cuboid.name);
+	        ps.setInt(2, cuboid.coords[0]);
+	        ps.setInt(3, cuboid.coords[1]);
+	        ps.setInt(4, cuboid.coords[2]);
+	        ps.setInt(5, cuboid.coords[3]);
+	        ps.setInt(6, cuboid.coords[4]);
+	        ps.setInt(7, cuboid.coords[5]);
+	        ps.setBoolean(8, cuboid.protection);
+	        ps.setBoolean(9, cuboid.restricted);
+	        ps.setBoolean(10, cuboid.trespassing);
+	        ps.setBoolean(11, cuboid.PvP);
+	        ps.setBoolean(12, cuboid.heal);
+	        ps.setBoolean(13, cuboid.creeper);
+	        ps.setBoolean(14, cuboid.sanctuary);
+	        ps.setString(15, cuboid.welcomeMessage);
+	        ps.setString(16, cuboid.farewellMessage);
+	        ps.setString(17, cuboid.warning);
+	        // owners
+	        // cmdblacklist
+	        // playersINVs
+	        ps.executeUpdate();
+	    }
+	    catch (SQLException ex) {
+	    	CuboidPlugin.log.severe("Unable to log alert into SQL");
+	    }
+	    finally {
+	        try {
+	            if (ps != null)
+	                ps.close();
+	            if (rs != null)
+	                rs.close();
+	            if (conn != null)
+	                conn.close();
+	        } catch (SQLException ex) {}
+	    }
+	}
+	
 	////////////////////////////
 	////    DATA SENDING    ////
 	////////////////////////////
 	
-	public static CuboidB findCuboidArea(int X, int Y, int Z){
-		CuboidB lastEntry = null;
-		for (CuboidB cuboid : listOfCuboids){
+	public static CuboidC findCuboidArea(int X, int Y, int Z){
+		CuboidC lastEntry = null;
+		for (CuboidC cuboid : listOfCuboids){
 			if ( cuboid.contains(X, Y, Z) ){
 				if ( newestHavePriority ){
 					lastEntry = cuboid;
@@ -181,9 +284,9 @@ public class CuboidAreas {
 		return lastEntry;
 	}
 	
-	public static CuboidB findCuboidArea(String cuboidName){
-		CuboidB lastEntry = null;
-		for (CuboidB cuboid : listOfCuboids){
+	public static CuboidC findCuboidArea(String cuboidName){
+		CuboidC lastEntry = null;
+		for (CuboidC cuboid : listOfCuboids){
 			if ( cuboid.name.equalsIgnoreCase(cuboidName) ){
 				if ( newestHavePriority ){
 					lastEntry = cuboid;
@@ -196,13 +299,36 @@ public class CuboidAreas {
 		return lastEntry;
 	}
 	
-	public static void refreshPlayerList(Location loc, Player player){
-		for (CuboidB cuboid : listOfCuboids){
-			if ( cuboid.contains((int)loc.x, (int)loc.y, (int)loc.z) && cuboid.presentPlayers.contains(player.getName())
-					&& !cuboid.contains((int)player.getX(), (int)player.getY(), (int)player.getZ())){
-				cuboid.presentPlayers.remove(player.getName());
-			}	
+	public static void movement(Player player, Location loc){
+		if ( !inside.containsKey(player.getName()) ) inside.put(player.getName(), new ArrayList<CuboidC>());
+		ArrayList<CuboidC> presence = inside.get(player.getName());
+		for (int i = 0 ; i < listOfCuboids.size(); i++){
+			CuboidC cuboid = listOfCuboids.get(i);
+			if (cuboid.contains(loc) && !presence.contains(cuboid)){
+				cuboid.playerEnters(player);
+				if (cuboid.heal && healPower > 0 && player.getHealth() > 0){
+					healTimer.schedule(new CuboidHealJob(player.getName(), cuboid), healDelay);
+				}
+				presence.add(cuboid);
+			}
+			else if ( !cuboid.contains(loc) && presence.contains(cuboid) ){
+				cuboid.playerLeaves(player);
+				presence.remove(cuboid);
+			}
 		}
+		// DEBUG player.sendMessage("DB : " + (int)loc.x + "/" + (int)loc.y + "/" + (int)loc.z + " --> "  + presence.size());
+	}
+	
+	public static void leaveAll(Player player){
+		if ( !inside.containsKey(player.getName()) ) return;
+		ArrayList<CuboidC> presence = inside.get(player.getName());
+		for (int i = listOfCuboids.size()-1 ; i >= 0 ; i--){
+			CuboidC cuboid = listOfCuboids.get(i);
+			if ( presence.contains(cuboid) ){
+				cuboid.playerLeaves(player);
+			}
+		}
+		inside.remove(player.getName());
 	}
 	
 	public static String displayCuboidsList(){
@@ -211,7 +337,7 @@ public class CuboidAreas {
 		}
 		
 		String list = "";
-		for (CuboidB cuboid : listOfCuboids){
+		for (CuboidC cuboid : listOfCuboids){
 			list += " " + cuboid.name;
 		}
 		return list.trim();
@@ -219,7 +345,7 @@ public class CuboidAreas {
 	
 	public static void displayOwnedList(Player player){
 		String list = "";
-		for (CuboidB cuboid : listOfCuboids){
+		for (CuboidC cuboid : listOfCuboids){
 			if ( cuboid.isOwner(player) )
 				list += " " + cuboid.name;
 		}
@@ -244,7 +370,7 @@ public class CuboidAreas {
 		int[] firstPoint = CuboidAction.getPoint(playerName, false);
 		int[] secondPoint = CuboidAction.getPoint(playerName, true);
 		
-		CuboidB newCuboid = new CuboidB();
+		CuboidC newCuboid = new CuboidC();
 		for (short i = 0; i < 3; i++)
 			newCuboid.coords[i] = firstPoint[i];
 		for (short i = 0; i < 3; i++)
@@ -256,9 +382,6 @@ public class CuboidAreas {
 		}
 		if ( CuboidPlugin.restrictedOnDefault ){
 			newCuboid.restricted = true;
-		}
-		if ( CuboidPlugin.localInventoryOnDefault ){
-			newCuboid.inventories = true;
 		}
 		if ( CuboidPlugin.sanctuaryOnDefault ){
 			newCuboid.sanctuary = true;	
@@ -301,7 +424,7 @@ public class CuboidAreas {
 			secondPoint[1] += addedHeight;
 		}
 		
-		CuboidB newCuboid = new CuboidB();
+		CuboidC newCuboid = new CuboidC();
 		for (short i = 0; i < 3; i++)
 			newCuboid.coords[i] = firstPoint[i];
 		for (short i = 0; i < 3; i++)
@@ -320,7 +443,7 @@ public class CuboidAreas {
 		return true;
 	}
 	
-	public static void moveCuboidArea(Player player, CuboidB cuboid) {
+	public static void moveCuboidArea(Player player, CuboidC cuboid) {
 		String playerName = player.getName();
 		int[] firstPoint = CuboidAction.getPoint(playerName, false);
 		int[] secondPoint = CuboidAction.getPoint(playerName, true);
@@ -348,7 +471,7 @@ public class CuboidAreas {
 			CuboidPlugin.log.info(playerName + " moved a cuboid area named " + cuboid.name);
 	}
 	
-	public static void removeCuboidArea(Player player, CuboidB cuboid){
+	public static void removeCuboidArea(Player player, CuboidC cuboid){
 		String playerName = player.getName();
 		listOfCuboids.remove(cuboid);
 		if (cuboid.protection)
@@ -366,7 +489,7 @@ public class CuboidAreas {
 		}   
 	}
 	
-	public static void treatAllowance( Player player, String[] list, CuboidB cuboid ){
+	public static void treatAllowance( Player player, String[] list, CuboidC cuboid ){
 		for (String data : list){
 			if ( data.charAt(0)=='/' )
 				cuboid.allowCommand(data);
@@ -376,7 +499,7 @@ public class CuboidAreas {
 		player.sendMessage(Colors.LightGreen + "Area's whitelist updated");
 	}
 	
-	public static void treatDisallowance( Player player, String[] list, CuboidB cuboid ){	
+	public static void treatDisallowance( Player player, String[] list, CuboidC cuboid ){	
 		for (String data : list){
 			if ( data.charAt(0)=='/' )
 				cuboid.disallowCommand(data);

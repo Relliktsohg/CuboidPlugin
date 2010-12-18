@@ -1,14 +1,13 @@
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 @SuppressWarnings("serial")
-public class CuboidB implements Serializable{	
+public class CuboidC implements Serializable{	
 	String name= "noname";
 	int[] coords = new int[6];	//	int[]{firstX, firstY, firstZ, secondX, secondY, secondZ}	
 	boolean protection = false;
 	boolean restricted = false;
-	boolean inventories = false;
+	boolean trespassing = false;
 	boolean PvP = true;
 	boolean heal = false;
 	boolean creeper = true;
@@ -17,16 +16,18 @@ public class CuboidB implements Serializable{
 	String welcomeMessage = null;
 	String farewellMessage = null;
 	String warning = null;
-	ArrayList<String> presentPlayers = new ArrayList<String>();
 	ArrayList<String> disallowedCommands = new ArrayList<String>();
-	HashMap<String, CuboidInventory> playerInventories = new HashMap<String, CuboidInventory>();
 	
-	public CuboidB(){}
+	public CuboidC(){}
 	
 	public boolean contains(int X, int Y, int Z){
 		if( X >= coords[0] && X <= coords[3] && Z >= coords[2] && Z <= coords[5] && Y >= coords[1] && Y <= coords[4])
 			return true;
 		return false;
+	}
+	
+	public boolean contains( Location l ){
+		return contains( (int)l.x, (int)l.y, (int)l.z);
 	}
 	
 	public boolean isAllowed( Player player ){
@@ -107,69 +108,13 @@ public class CuboidB implements Serializable{
 	}
 	
 	public void playerEnters( Player player ){
-		if ( !presentPlayers.contains(player.getName()) ){
-			this.presentPlayers.add(player.getName());
-			if ( this.welcomeMessage != null )
-				player.sendMessage(Colors.Yellow + this.welcomeMessage);
-		}
-		// I had to separate the inventory-switching from the rest, to enable nested cuboids
-		if ( this.inventories ){
-			CuboidInventory cuboidInventory;
-			boolean newVisitor = true;
-			if (playerInventories.containsKey(player.getName())){
-				cuboidInventory = playerInventories.get(player.getName());
-				newVisitor = false;
-			}
-			else{
-				cuboidInventory = new CuboidInventory();
-			}
-			Inventory outsideInventory = player.getInventory();
-			
-			cuboidInventory.outside = new ArrayList<CuboidItem>();
-			for (int i=0; i<outsideInventory.getArray().length; i++){
-				Item item = outsideInventory.getItemFromSlot(i);
-				if (item != null)
-					cuboidInventory.outside.add(new CuboidItem(item));;
-			}
-			outsideInventory.clearContents();
-			outsideInventory.updateInventory();
-			playerInventories.put(player.getName(), cuboidInventory);
-			
-			if (!newVisitor){
-				for (CuboidItem item : cuboidInventory.inside){
-					player.giveItem( new Item(item.itemId, item.amount, item.slot) );
-				}
-			}
-		}
+		if ( this.welcomeMessage != null )
+			player.sendMessage(Colors.Yellow + this.welcomeMessage);
 	}
 	
 	public void playerLeaves( Player player ){
-		int X = (int)player.getX();
-		int Y = (int)player.getY();
-		int Z = (int)player.getZ();
-		if ( X<=coords[0] || X>=coords[3] || Y<=coords[1] || Y>=coords[4] || Z<=coords[2] || Z>=coords[5] ){
-			this.presentPlayers.remove(player.getName());
-			if ( this.farewellMessage != null )
-				player.sendMessage(Colors.Yellow + this.farewellMessage);
-		}
-		if ( this.inventories ){
-			CuboidInventory cuboidInventory = playerInventories.get(player.getName());
-			Inventory insideInventory = player.getInventory();
-			
-			cuboidInventory.inside = new ArrayList<CuboidItem>();
-			for (int i=0; i<insideInventory.getArray().length; i++){
-				Item item = insideInventory.getItemFromSlot(i);
-				if (item != null)
-					cuboidInventory.inside.add(new CuboidItem(item));
-			}
-			insideInventory.clearContents();
-			insideInventory.updateInventory();
-			playerInventories.put(player.getName(), cuboidInventory);
-			
-			for (CuboidItem item : cuboidInventory.outside){
-				player.giveItem(new Item(item.itemId, item.amount, item.slot));
-			}
-		}
+		if ( this.farewellMessage != null )
+			player.sendMessage(Colors.Yellow + this.farewellMessage);
 	}
 
 	public void printInfos(Player player, boolean players, boolean commands ){
@@ -182,10 +127,6 @@ public class CuboidB implements Serializable{
 		}
 		if ( this.restricted ){
 			flags += " restricted";
-			noflag = false;
-		}
-		if ( this.inventories ){
-			flags += " inventory";
 			noflag = false;
 		}
 		if ( !this.PvP ){
@@ -240,15 +181,18 @@ public class CuboidB implements Serializable{
 	}
 	
 	public void printPresentPlayers(Player player){
-		if ( this.presentPlayers.size() == 0 ){
-			player.sendMessage(Colors.Yellow + "Present players : " + Colors.White + "<list is empty>");
-			return;
-		}
 		String list = "";
-		for ( String playerName : this.presentPlayers){
-			list += " " + playerName;
+		for ( Player p : etc.getServer().getPlayerList()){
+			if ( this.contains((int)p.getX(), (int)p.getY(), (int)p.getZ()) ){
+				list += " " + p.getName();
+			}
 		}
-		player.sendMessage(Colors.Yellow + "Present players :" + Colors.White + list);
+		if (list.length()<2){
+			player.sendMessage(Colors.Yellow + "Present players : " + Colors.White + "<list is empty>");
+		}
+		else{
+			player.sendMessage(Colors.Yellow + "Present players :" + Colors.White + list);
+		}
 	}
 	
 	public void printDisallowedCommands(Player player){
