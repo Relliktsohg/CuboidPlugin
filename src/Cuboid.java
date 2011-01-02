@@ -134,13 +134,13 @@ public class Cuboid implements Serializable{
 			
 			// storage of inventory
 			cuboidInventory.outside = new ArrayList<CuboidItem>();
-			for (int i=0; i<outsideInventory.getArray().length; i++){
+			for (int i=0; i<outsideInventory.getContents().length; i++){
 				Item item = outsideInventory.getItemFromSlot(i);
 				if (item != null)
 					cuboidInventory.outside.add(new CuboidItem(item));;
 			}
 			outsideInventory.clearContents();
-			outsideInventory.updateInventory();
+			outsideInventory.update();
 			playerInventories.put(player.getName(), cuboidInventory);
 			
 			// restore old inventory
@@ -162,13 +162,13 @@ public class Cuboid implements Serializable{
 			
 			// storage of inventory
 			cuboidInventory.inside = new ArrayList<CuboidItem>();
-			for (int i=0; i<insideInventory.getArray().length; i++){
+			for (int i=0; i<insideInventory.getContents().length; i++){
 				Item item = insideInventory.getItemFromSlot(i);
 				if (item != null)
 					cuboidInventory.inside.add(new CuboidItem(item));
 			}
 			insideInventory.clearContents();
-			insideInventory.updateInventory();
+			insideInventory.update();
 			playerInventories.put(player.getName(), cuboidInventory);
 			
 			// restore old inventory

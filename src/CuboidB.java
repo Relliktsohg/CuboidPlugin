@@ -126,13 +126,13 @@ public class CuboidB implements Serializable{
 			Inventory outsideInventory = player.getInventory();
 			
 			cuboidInventory.outside = new ArrayList<CuboidItem>();
-			for (int i=0; i<outsideInventory.getArray().length; i++){
+			for (int i=0; i<outsideInventory.getContents().length; i++){
 				Item item = outsideInventory.getItemFromSlot(i);
 				if (item != null)
 					cuboidInventory.outside.add(new CuboidItem(item));;
 			}
 			outsideInventory.clearContents();
-			outsideInventory.updateInventory();
+			outsideInventory.update();
 			playerInventories.put(player.getName(), cuboidInventory);
 			
 			if (!newVisitor){
@@ -157,13 +157,13 @@ public class CuboidB implements Serializable{
 			Inventory insideInventory = player.getInventory();
 			
 			cuboidInventory.inside = new ArrayList<CuboidItem>();
-			for (int i=0; i<insideInventory.getArray().length; i++){
+			for (int i=0; i<insideInventory.getContents().length; i++){
 				Item item = insideInventory.getItemFromSlot(i);
 				if (item != null)
 					cuboidInventory.inside.add(new CuboidItem(item));
 			}
 			insideInventory.clearContents();
-			insideInventory.updateInventory();
+			insideInventory.update();
 			playerInventories.put(player.getName(), cuboidInventory);
 			
 			for (CuboidItem item : cuboidInventory.outside){

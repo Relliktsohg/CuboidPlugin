@@ -13,8 +13,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class CuboidPlugin extends Plugin {
-	// Version 17.9 : 18/12 15h00 GMT+1
-	// for servermod 131
+	// Version 18.1b ~\\
+	// for servermod b132
 		
 	public String name = "CuboidPlugin";
 	static final Logger log = Logger.getLogger("Minecraft");
@@ -414,8 +414,8 @@ public class CuboidPlugin extends Plugin {
 		loader.addListener(PluginLoader.Hook.BLOCK_RIGHTCLICKED, listener, this, PluginListener.Priority.HIGH);
 		loader.addListener(PluginLoader.Hook.PLAYER_MOVE, listener, this, PluginListener.Priority.MEDIUM);
 		loader.addListener(PluginLoader.Hook.TELEPORT, listener, this, PluginListener.Priority.MEDIUM);
-		loader.addListener(PluginLoader.Hook.COMPLEX_BLOCK_CHANGE, listener, this, PluginListener.Priority.HIGH);
-		loader.addListener(PluginLoader.Hook.COMPLEX_BLOCK_SEND, listener, this, PluginListener.Priority.HIGH);
+		loader.addListener(PluginLoader.Hook.OPEN_INVENTORY, listener, this, PluginListener.Priority.HIGH);
+		//loader.addListener(PluginLoader.Hook.CHANGE_INVENTORY, listener, this, PluginListener.Priority.HIGH); //Seems that hmod neglected to impliment this
 		loader.addListener(PluginLoader.Hook.SERVERCOMMAND, listener, this, PluginListener.Priority.MEDIUM);
 		loader.addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.MEDIUM);
 		loader.addListener(PluginLoader.Hook.KICK, listener, this, PluginListener.Priority.MEDIUM);
@@ -1578,10 +1578,11 @@ public class CuboidPlugin extends Plugin {
 			return false;
 	    }
 		
-		public boolean onComplexBlockChange(Player player, ComplexBlock block){
-			if ( block instanceof Chest ){
+		public boolean onOpenInventory(Player player, Inventory inventory){
+			if ( inventory instanceof Chest ){
+			  Chest chest = (Chest) inventory;
 				if ( chestProtection && !player.canUseCommand("/ignoresOwnership") ){
-					CuboidC cuboid = CuboidAreas.findCuboidArea(block.getX(), block.getY(), block.getZ());
+					CuboidC cuboid = CuboidAreas.findCuboidArea(chest.getX(), chest.getY(), chest.getZ());
 					if ( cuboid != null && cuboid.protection ){
 						return !cuboid.isAllowed(player);
 					}
@@ -1591,10 +1592,13 @@ public class CuboidPlugin extends Plugin {
 			return false;
 		}
 		
-		public boolean onSendComplexBlock(Player player, ComplexBlock block){
-			if ( block instanceof Chest ){
+		//Seems hmod has not implimented this. May not be needed since we restrict opening chests in the first place. Can't open, can't change since it is a server side inventory. TODO: Test this theory ~\\
+		/*
+		public boolean onChangeInventory(Player player, Inventory inventory){
+			if ( inventory instanceof Chest ){
+			  Chest chest = (Chest) inventory;
 				if ( chestProtection && !player.canUseCommand("/ignoresOwnership") ){
-					CuboidC cuboid = CuboidAreas.findCuboidArea(block.getX(), block.getY(), block.getZ());
+					CuboidC cuboid = CuboidAreas.findCuboidArea(chest.getX(), chest.getY(), chest.getZ());
 					if ( cuboid != null && cuboid.protection ){
 						return !cuboid.isAllowed(player);
 					}
@@ -1603,6 +1607,7 @@ public class CuboidPlugin extends Plugin {
 			}
 			return false;
 		}
+		*/
 		
 		public boolean onDamage(PluginLoader.DamageType type, BaseEntity attacker, BaseEntity defender, int amount) {
 			if ( type == PluginLoader.DamageType.ENTITY && defender.isPlayer()  ){
