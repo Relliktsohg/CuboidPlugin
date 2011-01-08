@@ -1579,7 +1579,7 @@ public class CuboidPlugin extends Plugin {
 	    }
 		
 		public boolean onOpenInventory(Player player, Inventory inventory){
-			if ( inventory instanceof Chest || inventory instanceof Chest ){
+			if ( inventory instanceof Chest || inventory instanceof DoubleChest ){
                           Block chest;
                           if ( inventory instanceof Chest ) chest = ((Chest)inventory).getBlock();
                           else chest = ((DoubleChest)inventory).getBlock();
