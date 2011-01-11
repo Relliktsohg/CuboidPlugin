@@ -1581,8 +1581,12 @@ public class CuboidPlugin extends Plugin {
 		public boolean onOpenInventory(Player player, Inventory inventory){
 			if ( inventory instanceof Chest || inventory instanceof DoubleChest ){
 				Block chest;
-				if ( inventory instanceof Chest ) chest = ((Chest)inventory).getBlock();
-				else chest = ((DoubleChest)inventory).getBlock();
+				if ( inventory instanceof Chest ){
+				  chest = ((Chest)inventory).getBlock();
+				}
+				else{
+				  chest = ((DoubleChest)inventory).getBlock();
+				}
                           
 				if ( chestProtection && !player.canUseCommand("/ignoresOwnership") ){
 					CuboidC cuboid = CuboidAreas.findCuboidArea(chest.getX(), chest.getY(), chest.getZ());
@@ -1595,7 +1599,7 @@ public class CuboidPlugin extends Plugin {
 			return false;
 		}
 		
-		//Seems hmod has not implimented this. May not be needed since we restrict opening chests in the first place. Can't open, can't change since it is a server side inventory. TODO: Test this theory ~\\
+		//Seems hmod has not implimented this. May not be needed since we restrict opening chests in the first place. Can't open, can't change since it is a server side inventory.
 		/*
 		public boolean onChangeInventory(Player player, Inventory inventory){
 			if ( inventory instanceof Chest || inventory instanceof DoubleChest ){
